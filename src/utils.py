@@ -57,19 +57,37 @@ def create_resource_dir(script_dir, story_type, title):
 
     return story_dir
 
-def call_openai_api(client, messages, max_retries=3):
+def call_openai_api(client, messages, max_retries=3, json_mode=False):
+    """Call the chat completion endpoint, optionally in structured JSON mode.
+
+    When ``json_mode`` is True the request asks the model to return a valid
+    JSON object via ``response_format``. This makes the storyboard/character
+    parsing far more reliable than scraping JSON out of free-form text. If the
+    configured endpoint does not support ``response_format`` (some
+    OpenAI-compatible proxies don't), we transparently drop the flag and retry
+    so generation still succeeds.
+    """
     config = load_config()
-    # Add a system message requesting JSON output
+    use_json = json_mode
     for attempt in range(max_retries):
         try:
-            response = client.chat.completions.create(
-                model=config['openai']['model'],
-                temperature=config['openai']['temperature'],
-                messages=messages
-            )
+            kwargs = {
+                "model": config['openai']['model'],
+                "temperature": config['openai']['temperature'],
+                "messages": messages,
+            }
+            if use_json:
+                kwargs["response_format"] = {"type": "json_object"}
+            response = client.chat.completions.create(**kwargs)
             return response.choices[0].message.content
         except Exception as e:
             print(f"An error occurred: {e}")
+            # The endpoint may not support structured JSON output; disable it
+            # for the remaining attempts rather than failing outright.
+            if use_json:
+                print("Retrying without structured JSON mode...")
+                use_json = False
+                continue
             if attempt < max_retries - 1:
                 print(f"Retrying... (Attempt {attempt + 2} of {max_retries})")
             else:

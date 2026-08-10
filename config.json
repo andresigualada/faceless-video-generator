@@ -10,6 +10,9 @@
     "model": "gpt-4o",
     "temperature": 0.9
   },
+  "image_generation": {
+    "provider": "replicate"
+  },
   "replicate_flux_api": {
     "model": "black-forest-labs/flux-schnell",
     "aspect_ratio": "9:16",
@@ -28,5 +31,19 @@
   },
   "tts": {
     "speech_rate": 1.1
+  },
+  "background_music": {
+    "enabled": false,
+    "path": "assets/music/background.mp3",
+    "volume": 0.12
+  },
+  "sound_effects": {
+    "enabled": false,
+    "transition_path": "assets/sfx/whoosh.mp3",
+    "volume": 0.5
+  },
+  "thumbnail": {
+    "enabled": true,
+    "font": "TitanOne.ttf"
   }
 }
