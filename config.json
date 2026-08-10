@@ -33,13 +33,13 @@
     "speech_rate": 1.1
   },
   "background_music": {
-    "enabled": false,
-    "path": "assets/music/background.mp3",
+    "enabled": true,
+    "path": "assets/music/background.wav",
     "volume": 0.12
   },
   "sound_effects": {
     "enabled": false,
-    "transition_path": "assets/sfx/whoosh.mp3",
+    "transition_path": "assets/sfx/whoosh.wav",
     "volume": 0.5
   },
   "thumbnail": {
