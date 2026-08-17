@@ -59,22 +59,36 @@ Faceless Video Generator is a comprehensive multimedia content creation tool tha
    ```
 
 4. Configure environment variables:
-   Create a `.env` file in the project root directory with the following content:
+   Copy the provided template and fill in your own credentials:
+
+   ```bash
+   cp .env.example .env
+   ```
 
    ```plaintext
    # Required: OpenAI API configuration for story generation
    OPENAI_BASE_URL=your_openai_base_url
    OPENAI_API_KEY=your_openai_api_key
-   
-   # Required: Replicate API token for default image generation
+
+   # Required when the image provider is "replicate" (the default)
    REPLICATE_API_TOKEN=your_replicate_api_token
-   
-   # Optional: FAL API key if you want to use FAL for image generation
-   # To use FAL, you'll need to modify src/main.py
+
+   # Required when the image provider is "fal"
    FAL_KEY=your_fal_api_key
    ```
 
-   Note: The system uses Replicate for image generation by default. If you prefer to use FAL's image generation service, you can modify `src/main.py` accordingly.
+   Note: The system uses Replicate for image generation by default. To use FAL
+   instead, set `image_generation.provider` to `"fal"` in `config.json` or run
+   with `--provider fal` — no code changes required (see
+   [Image Provider Selection](#image-provider-selection)).
+
+5. (Optional) Install as a command-line tool:
+
+   ```bash
+   pip install -e .
+   ```
+
+   This exposes the `faceless-gen` command as a shortcut for `python src/main.py`.
 
 ## Usage
 
@@ -92,6 +106,12 @@ Faceless Video Generator is a comprehensive multimedia content creation tool tha
 
    ```bash
    python src/main.py
+
+   # or, if installed with `pip install -e .`:
+   faceless-gen
+
+   # override the image provider for this run:
+   faceless-gen --provider fal
    ```
 
 3. Follow the prompts to:
@@ -99,7 +119,8 @@ Faceless Video Generator is a comprehensive multimedia content creation tool tha
    - Choose an image style
    - Pick a voice for audio generation
 
-The script will automatically generate the story, images, and video.
+The script will automatically generate the story, images, video, and a titled
+`thumbnail.png`.
 
 ## Project Structure
 
@@ -108,6 +129,7 @@ The script will automatically generate the story, images, and video.
 - `src/image_generator.py`: Functions for generating images.
 - `src/video_creator.py`: Functions for creating videos.
 - `src/audio_generator.py`: Functions for generating audio using OpenAI TTS.
+- `src/thumbnail_generator.py`: Generates a titled thumbnail for each video.
 - `src/utils.py`: Utility functions for various tasks.
 - `src/transitions.py`: Video transition effects.
 - `src/parse_json.py`: JSON parsing utilities.
@@ -149,6 +171,38 @@ The project supports two image generation APIs:
 
 ### Text-to-Speech Settings
 - `speech_rate`: Speed multiplier for generated speech (1.1)
+
+### Image Provider Selection
+Choose which backend generates the images — no code changes needed:
+- `image_generation.provider`: `"replicate"` (default) or `"fal"`.
+
+You can also override it per run with the CLI flag `--provider replicate|fal`,
+which takes precedence over `config.json`. Make sure the matching API key is set
+in `.env` (`REPLICATE_API_TOKEN` or `FAL_KEY`).
+
+### Background Music
+Mixes a looping music track underneath the narration (simple constant ducking so
+the voice-over stays clear):
+- `background_music.enabled`: Turn background music on/off (`true` by default).
+- `background_music.path`: Path to the music file, relative to the project root
+  (ships with a synthesized, royalty-free `assets/music/background.wav`).
+- `background_music.volume`: Music volume relative to the narration (0.12).
+
+Drop in your own track by replacing the file or pointing `path` at it. If the
+file is missing, music is skipped without failing the render.
+
+### Sound Effects
+Plays a short sound effect on each scene transition:
+- `sound_effects.enabled`: Turn transition SFX on/off (`false` by default).
+- `sound_effects.transition_path`: Path to the SFX file (a royalty-free
+  `assets/sfx/whoosh.wav` is included).
+- `sound_effects.volume`: SFX volume (0.5).
+
+### Thumbnail
+Automatically renders a titled `thumbnail.png` from the first scene image:
+- `thumbnail.enabled`: Turn thumbnail generation on/off (`true` by default).
+- `thumbnail.font`: Font file (from the `font/` directory) used for the title
+  ("TitanOne.ttf").
 
 You can modify these settings in the `config.json` file to customize the behavior of the application according to your needs.
 

@@ -3,11 +3,44 @@ import io
 import requests
 import replicate
 import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 import time
 from utils import load_config
 import fal_client
 from PIL import Image
+
+
+# Registry of the supported image-generation providers. Adding a new backend
+# is a one-line change here plus the matching function below.
+IMAGE_PROVIDERS: Dict[str, Callable[[str], Optional[bytes]]] = {}
+
+
+def register_image_provider(name: str):
+    """Decorator that registers an image-generation function under `name`."""
+    def _decorator(func: Callable[[str], Optional[bytes]]):
+        IMAGE_PROVIDERS[name.lower()] = func
+        return func
+    return _decorator
+
+
+def get_image_provider(name: Optional[str] = None) -> Callable[[str], Optional[bytes]]:
+    """Return the image-generation function for `name`.
+
+    When `name` is None the value of ``image_generation.provider`` in
+    config.json is used (defaulting to "replicate"). Raising a clear error for
+    an unknown provider avoids silently falling back to the wrong backend.
+    """
+    if name is None:
+        config = load_config()
+        name = config.get("image_generation", {}).get("provider", "replicate")
+
+    key = name.lower()
+    if key not in IMAGE_PROVIDERS:
+        available = ", ".join(sorted(IMAGE_PROVIDERS)) or "none"
+        raise ValueError(
+            f"Unknown image provider '{name}'. Available providers: {available}."
+        )
+    return IMAGE_PROVIDERS[key]
 
 
 def submit_fal_request(prompt: str, config: dict) -> Optional[str]:
@@ -35,6 +68,7 @@ def submit_fal_request(prompt: str, config: dict) -> Optional[str]:
         return None
 
 
+@register_image_provider("fal")
 def fal_flux_api(prompt: str, max_retries: int = 3) -> Optional[bytes]:
     config = load_config()
     fal_config = config["fal_flux_api"]
@@ -162,6 +196,7 @@ def openrouter_image_api(prompt: str, max_retries: int = 3, _style_prefix: str =
     return None
 
 
+@register_image_provider("replicate")
 def replicate_flux_api(prompt: str, max_retries: int = 3) -> Optional[bytes]:
     config = load_config()
     replicate_config = config["replicate_flux_api"]
@@ -190,15 +225,15 @@ def replicate_flux_api(prompt: str, max_retries: int = 3) -> Optional[bytes]:
         except Exception as e:
             if attempt < max_retries - 1:
                 print(
-                    f"Error in Flux Schnell generation (attempt {
-                        attempt + 1}/{max_retries}): {e}"
+                    f"Error in Flux Schnell generation "
+                    f"(attempt {attempt + 1}/{max_retries}): {e}"
                 )
                 print("Retrying...")
                 time.sleep(1)  # Wait for 1 second before retrying
             else:
                 print(
-                    f"Error in Flux Schnell generation after {
-                        max_retries} attempts: {e}"
+                    f"Error in Flux Schnell generation after "
+                    f"{max_retries} attempts: {e}"
                 )
     return None
 

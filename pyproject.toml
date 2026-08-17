@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "faceless-video-generator"
+version = "0.1.0"
+description = "Automatically generate faceless short-form videos (story, images, voice-over, captions, music and thumbnail) from a single prompt."
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["faceless", "video", "ai", "shorts", "tiktok", "youtube", "storytelling"]
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://facelessvideos.app/"
+Repository = "https://github.com/SmartClipAI/faceless-video-generator"
+
+# Installable console command:  faceless-gen [--provider replicate|fal]
+[project.scripts]
+faceless-gen = "main:main"
+
+[tool.setuptools]
+# The source files live directly under src/ and import each other as
+# top-level modules (e.g. `from utils import ...`). Mapping the package root
+# to src/ keeps that working both when running `python src/main.py` and when
+# the project is installed with `pip install -e .`.
+package-dir = { "" = "src" }
+py-modules = [
+    "main",
+    "utils",
+    "api",
+    "story_generator",
+    "image_generator",
+    "audio_generator",
+    "video_creator",
+    "transitions",
+    "thumbnail_generator",
+    "parse_json",
+]
+
+# Single source of truth for dependencies: requirements.txt
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }

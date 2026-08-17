@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import argparse
 from dotenv import load_dotenv
 from openai import OpenAI
 from utils import pick_voice_name
@@ -20,8 +21,8 @@ from utils import (
     pick_image_style,
     load_config,
 )
-from api import replicate_flux_api, fal_flux_api
-from video_creator import add_subtitles
+from api import get_image_provider
+from thumbnail_generator import generate_thumbnail
 
 # Get the directory of the current script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +39,29 @@ client = OpenAI(
 )
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate a faceless short-form video from a single prompt."
+    )
+    parser.add_argument(
+        "--provider",
+        choices=sorted(["replicate", "fal"]),
+        default=None,
+        help="Image generation provider. Overrides "
+        "image_generation.provider in config.json (default: replicate).",
+    )
+    # parse_known_args keeps the tool usable when launched by wrappers that
+    # inject their own arguments.
+    args, _ = parser.parse_known_args()
+    return args
+
+
 def main():
+    args = parse_args()
+
+    # Resolve the image provider from the CLI flag or config.json.
+    image_provider = get_image_provider(args.provider)
+
     # 1. pick story type, image style and voice name
     story_type = pick_story_type()
     image_style = pick_image_style()
@@ -108,7 +131,7 @@ def main():
         storyboard_project,
         story_dir,
         image_style,
-        replicate_flux_api,
+        image_provider,
     )
 
     # Update storyboard_project with image and audio paths
@@ -133,6 +156,17 @@ def main():
         video_path = os.path.join(story_dir, "story_video.mp4")
         create_video(client, storyboard_project, video_path, audio_dir, voice_name)
         print(f"Video created: {video_path}")
+
+        # 8. generate a titled thumbnail from the first scene image
+        thumbnail_config = config.get("thumbnail", {})
+        if thumbnail_config.get("enabled", True):
+            print("\nGenerating thumbnail...")
+            generate_thumbnail(
+                image_files[0],
+                title,
+                os.path.join(story_dir, "thumbnail.png"),
+                thumbnail_config.get("font", "TitanOne.ttf"),
+            )
     else:
         print("No images were generated. Cannot create video.")
 

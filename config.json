@@ -10,6 +10,9 @@
     "model": "google/gemini-2.5-flash",
     "temperature": 0.9
   },
+  "image_generation": {
+    "provider": "replicate"
+  },
   "replicate_flux_api": {
     "model": "black-forest-labs/flux-schnell",
     "aspect_ratio": "9:16",
@@ -40,5 +43,19 @@
     "max_chars_per_audio_chunk": 1000,
     "subtitle_max_words_per_line": 8,
     "batch_size": 25
+  },
+  "background_music": {
+    "enabled": true,
+    "path": "assets/music/background.wav",
+    "volume": 0.12
+  },
+  "sound_effects": {
+    "enabled": false,
+    "transition_path": "assets/sfx/whoosh.wav",
+    "volume": 0.5
+  },
+  "thumbnail": {
+    "enabled": true,
+    "font": "TitanOne.ttf"
   }
 }

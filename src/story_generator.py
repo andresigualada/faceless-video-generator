@@ -189,20 +189,21 @@ def generate_characters(client, story: str) -> List[Dict[str, str]]:
         Story:
         {story}
 
-        Output format:
-        [
-            {{
-                "name": "Character Name",
-                "ethnicity": "Character's Ethnicity",
-                "gender": "Character's Gender",
-                "age": "Character's Age",
-                "facial_features": "Description of Character's facial features",
-                "body_type": "Description of Character's body type",
-                "hair_style": "Description of Character's hair style",
-                "accessories": "Description of Character's accessories"
-            }},
-            ...
-        ]
+        Output a JSON object with a single "characters" key holding the array:
+        {{
+            "characters": [
+                {{
+                    "name": "Character Name",
+                    "ethnicity": "Character's Ethnicity",
+                    "gender": "Character's Gender",
+                    "age": "Character's Age",
+                    "facial_features": "Description of Character's facial features",
+                    "body_type": "Description of Character's body type",
+                    "hair_style": "Description of Character's hair style",
+                    "accessories": "Description of Character's accessories"
+                }}
+            ]
+        }}
 
         Guidelines:
         - Include the character's name as it appears in the story.
@@ -217,7 +218,7 @@ def generate_characters(client, story: str) -> List[Dict[str, str]]:
         - Focus on permanent or long-term features, not on changeable expressions or temporary states.
         - Do not include any descriptions of clothing or attire.
 
-        Please provide only the JSON array, without any additional text.
+        Please provide only the JSON object, without any additional text.
         """
 
     messages = [
@@ -236,24 +237,44 @@ def generate_characters(client, story: str) -> List[Dict[str, str]]:
         {"role": "user", "content": prompt},
     ]
 
-    response = call_openai_api(client, messages)
+    response = call_openai_api(client, messages, json_mode=True)
     if not response:
         print("API returned empty response")
-    
+        return []
+
+    return _parse_characters(response)
+
+
+def _parse_characters(response: str) -> List[Dict[str, str]]:
+    """Extract the character list from a model response.
+
+    Accepts either a JSON object of the form ``{"characters": [...]}`` (the
+    structured-output shape) or a bare JSON array, and falls back to scraping
+    the array out of surrounding text for older/unstructured responses.
+    """
+    def _coerce(data):
+        if isinstance(data, dict):
+            return data.get("characters", [])
+        if isinstance(data, list):
+            return data
+        return []
+
     try:
-        return json.loads(response)
+        return _coerce(json.loads(response))
     except json.JSONDecodeError:
-        # if the direct parsing fails, try to extract the JSON array part
-        array_match = re.search(r'\[.*\]', response, re.DOTALL)
-        if array_match:
-            try:
-                return json.loads(array_match.group())
-            except json.JSONDecodeError:
-                print("Failed to parse the response as a JSON array.")
-                return []
-        else:
-            print("No JSON array found in the response.")
+        pass
+
+    # Fallback: pull the first JSON array out of the raw text.
+    array_match = re.search(r'\[.*\]', response, re.DOTALL)
+    if array_match:
+        try:
+            return json.loads(array_match.group())
+        except json.JSONDecodeError:
+            print("Failed to parse the response as a JSON array.")
             return []
+
+    print("No character data found in the response.")
+    return []
 
 
 def generate_storyboard(client, title: str, story: str, story_type: str, character_names: List[str] = None) -> Dict[str, Any]:
@@ -385,11 +406,18 @@ def generate_storyboard(client, title: str, story: str, story_type: str, charact
         {"role": "user", "content": prompt},
     ]
 
-    response = call_openai_api(client, messages)
+    response = call_openai_api(client, messages, json_mode=True)
     if not response:
         print("API returned empty response")
         return create_empty_storyboard(title)
-    
+
+    # In JSON mode the response is already a clean object; try that first and
+    # only fall back to regex extraction for unstructured responses.
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError:
+        pass
+
     json_match = re.search(r'\{.*\}', response, re.DOTALL)
     if json_match:
         json_str = json_match.group()
