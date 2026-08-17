@@ -7,7 +7,7 @@
     "max_scenes": 14
   },
   "openai": {
-    "model": "gpt-4o",
+    "model": "google/gemini-2.5-flash",
     "temperature": 0.9
   },
   "replicate_flux_api": {
@@ -28,5 +28,17 @@
   },
   "tts": {
     "speech_rate": 1.1
+  },
+  "long_form": {
+    "image_model": "black-forest-labs/flux.2-pro",
+    "audio_model": "x-ai/grok-voice-tts-1.0",
+    "voice": "eve",
+    "aspect_ratio": "16:9",
+    "seed": 42,
+    "style_prefix": "cinematic, consistent art style, coherent characters,",
+    "max_chars_per_paragraph": 1500,
+    "max_chars_per_audio_chunk": 1000,
+    "subtitle_max_words_per_line": 8,
+    "batch_size": 25
   }
 }

@@ -82,7 +82,7 @@ def create_empty_storyboard(title):
         "project_info": {
             "title": title,
             "user": "AI Generated",
-            "timestamp": datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
         },
         "storyboards": []
     }
@@ -117,6 +117,118 @@ def pick_image_style():
                 print("Invalid choice. Please try again.")
         except ValueError:
             print("Invalid input. Please enter a number.")
+
+# ---------------------------------------------------------------------------
+# Long-form helpers
+# ---------------------------------------------------------------------------
+
+def split_paragraphs(text: str) -> List[str]:
+    """Divide el texto en párrafos (separados por líneas en blanco).
+
+    Si un párrafo supera max_chars_per_paragraph se subdivide por frases
+    para no saturar el modelo de audio.
+    """
+    config = load_config()
+    max_chars = config['long_form']['max_chars_per_paragraph']
+
+    raw = re.split(r'\n\s*\n', text)
+    paragraphs = []
+    for block in raw:
+        block = block.strip()
+        if not block:
+            continue
+        if len(block) <= max_chars:
+            paragraphs.append(block)
+        else:
+            # Subdividir por frases (punto, exclamación, interrogación + espacio)
+            sentences = re.split(r'(?<=[.!?])\s+', block)
+            chunk = ""
+            for sentence in sentences:
+                if len(chunk) + len(sentence) + 1 <= max_chars:
+                    chunk = (chunk + " " + sentence).strip() if chunk else sentence
+                else:
+                    if chunk:
+                        paragraphs.append(chunk)
+                    chunk = sentence
+            if chunk:
+                paragraphs.append(chunk)
+    return paragraphs
+
+
+def build_long_storyboard(paragraphs: List[str], title: str) -> Dict:
+    """Construye un storyboard_project compatible con el pipeline existente
+    a partir de una lista de párrafos (modo guión largo).
+    """
+    project = create_empty_storyboard(title)
+    project["characters"] = []  # Requerido por generate_and_download_images
+
+    for i, paragraph in enumerate(paragraphs):
+        project["storyboards"].append({
+            "scene_number": i + 1,
+            "description": paragraph,   # Prompt de imagen
+            "subtitles": paragraph,      # Texto narrado → audio + SRT
+            "image": None,
+            "audio": None,
+            "transition_type": "zoom-in" if i % 2 == 0 else "zoom-out",
+        })
+    return project
+
+
+def build_srt_from_storyboard(project: Dict, srt_path: str) -> str:
+    """Genera un archivo SRT a partir del texto del guión y la duración real
+    del audio de cada escena (scene['_audio_duration']).
+
+    Cada escena se parte en líneas de ≤ subtitle_max_words_per_line palabras.
+    La duración se reparte entre líneas de forma proporcional al nº de caracteres.
+    """
+    config = load_config()
+    max_words = config['long_form']['subtitle_max_words_per_line']
+
+    entries: List[Dict] = []
+    current_time = 0.0
+
+    for scene in project['storyboards']:
+        duration = scene.get('_audio_duration', 0.0)
+        text = scene.get('subtitles', '').strip()
+        if not text or duration <= 0:
+            current_time += duration
+            continue
+
+        # Dividir en líneas de ≤ max_words palabras
+        words = text.split()
+        lines = []
+        line_buf = []
+        for word in words:
+            line_buf.append(word)
+            if len(line_buf) >= max_words:
+                lines.append(' '.join(line_buf))
+                line_buf = []
+        if line_buf:
+            lines.append(' '.join(line_buf))
+
+        if not lines:
+            current_time += duration
+            continue
+
+        # Repartir duración proporcionalmente al nº de caracteres de cada línea
+        char_counts = [len(l) for l in lines]
+        total_chars = sum(char_counts) or 1
+        for line, chars in zip(lines, char_counts):
+            line_duration = duration * (chars / total_chars)
+            entries.append({
+                'start_time': current_time,
+                'end_time': current_time + line_duration,
+                'text': line,
+            })
+            current_time += line_duration
+
+    save_timestamped_subtitles(entries, srt_path)
+    return srt_path
+
+
+# ---------------------------------------------------------------------------
+# Legacy subtitle helpers (conservados para el modo corto)
+# ---------------------------------------------------------------------------
 
 def convert_to_timestamped_subtitles(chinese_storyboard_project: Dict, scene_duration: int = 10) -> List[Dict]:
     timestamped_subtitles = []
